@@ -1,4 +1,11 @@
 # .copilotrc
+# USER PREFERENCE: Do not ask unnecessary questions—just take action and do the work.
+# USER PREFERENCE: If a command will not influence the file system or data, just run it automatically—do not ask for permission.
+# Agent Command Execution Preferences
+agent_command_execution:
+  - Always run basic git commands (e.g., git status, git diff, git log) directly as the agent.
+  - Never ask the user to run these commands manually.
+  - Only prompt the user for confirmation if a command could modify, delete, or rewrite data.
 # Communication Protocols for Copilot
 
 writing_style:

@@ -1,3 +1,5 @@
+# Ignore CSV output directory
+csv_output/
 # Local HTML cache for validation
 html_cache/
 # Byte-compiled / optimized / DLL files

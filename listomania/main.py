@@ -9,10 +9,10 @@ from typing import List, Optional, Union, NamedTuple
 from pydantic import HttpUrl
 import typer
 from rich.console import Console
- 
 from rich.table import Table
 import csv
 import os
+
 
 
 
@@ -158,8 +158,7 @@ def parse_tracklist(html_content, show_url):
 app = typer.Typer()
 console = Console()
 
-import csv
-import os
+
 
 def print_tracklist(tracklist: TrackList):
     table = Table(title=f"TrackList: {tracklist.id}", show_lines=True)
@@ -177,7 +176,8 @@ def print_tracklist(tracklist: TrackList):
             table.add_row(str(idx), "Recording", track.artist, track.title, getattr(track, 'notes', '') or "")
     console.print(table)
 
-def write_tracklist_csv(tracklist: TrackList, out_dir: str = "."):
+def write_tracklist_csv(tracklist: TrackList, out_dir: str = "csv_output"):
+    os.makedirs(out_dir, exist_ok=True)
     filename = os.path.join(out_dir, f"tracklist-{tracklist.id}.csv")
     with open(filename, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
@@ -209,7 +209,7 @@ def main(csv: bool = typer.Option(False, "--csv", help="Output each tracklist to
                     tracklist = TrackList(id=list_id, tracks=tracks)
                     if csv:
                         write_tracklist_csv(tracklist)
-                        console.print(f"[green]Wrote tracklist to CSV: tracklist-{tracklist.id}.csv[/green]")
+                        console.print(f"[green]Wrote tracklist to CSV: {os.path.join('csv_output', f'tracklist-{tracklist.id}.csv')}[/green]")
                     else:
                         print_tracklist(tracklist)
     asyncio.run(run())
