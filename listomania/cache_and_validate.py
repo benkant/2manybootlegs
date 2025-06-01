@@ -1,6 +1,5 @@
 import asyncio
 import httpx
-import os
 from pathlib import Path
 from listomania.main import TRACKLISTS, parse_tracklist, TrackList
 
