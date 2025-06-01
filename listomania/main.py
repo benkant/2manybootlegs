@@ -1,3 +1,5 @@
+
+
 import httpx
 from bs4 import BeautifulSoup
 import asyncio
@@ -5,6 +7,12 @@ import re
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Union, NamedTuple
 from pydantic import HttpUrl
+import typer
+from rich.console import Console
+ 
+from rich.table import Table
+import csv
+import os
 
 
 
@@ -146,27 +154,68 @@ def parse_tracklist(html_content, show_url):
             tracks.append(Recording(artist=artist.strip(), title=title.strip()))
     return tracks
 
-async def main():
-    async with httpx.AsyncClient() as client:
-        urls = [entry.url for entry in TRACKLISTS]
-        tasks = [fetch_html(client, url) for url in urls]
-        html_pages = await asyncio.gather(*tasks)
-        for html, url in zip(html_pages, urls):
-            if html:
-                # Extract ID from URL, e.g., "hank-the-dj-1"
-                id_match = re.search(r'/([^/]+)/?$', url.rstrip('/'))
-                list_id = id_match.group(1) if id_match else "unknown"
-                tracks = parse_tracklist(html, url)
-                tracklist = TrackList(id=list_id, tracks=tracks)
-                # Here you can process the tracklist as needed
-                print(f"TrackList ID: {tracklist.id}")
-                for track in tracklist.tracks:
-                    if isinstance(track, Recording):
-                        print(f"Recording: {track.artist} - {track.title}")
-                    elif isinstance(track, Mashup):
-                        print(f"Mashup: {track.artist} - {track.title}")
-                        for part in track.parts:
-                            print(f"  Part: {part.artist} - {part.title}")
+
+app = typer.Typer()
+console = Console()
+
+import csv
+import os
+
+def print_tracklist(tracklist: TrackList):
+    table = Table(title=f"TrackList: {tracklist.id}", show_lines=True)
+    table.add_column("#", style="bold cyan", width=4)
+    table.add_column("Type", style="magenta", width=8)
+    table.add_column("Artist", style="green")
+    table.add_column("Title", style="yellow")
+    table.add_column("Notes", style="white")
+    for idx, track in enumerate(tracklist.tracks, 1):
+        if hasattr(track, 'parts') and getattr(track, 'parts', None):
+            table.add_row(str(idx), "Mashup", track.artist, track.title, getattr(track, 'notes', '') or "")
+            for part in track.parts:
+                table.add_row("", "Part", part.artist, part.title, getattr(part, 'notes', '') or "")
+        else:
+            table.add_row(str(idx), "Recording", track.artist, track.title, getattr(track, 'notes', '') or "")
+    console.print(table)
+
+def write_tracklist_csv(tracklist: TrackList, out_dir: str = "."):
+    filename = os.path.join(out_dir, f"tracklist-{tracklist.id}.csv")
+    with open(filename, mode="w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["#", "Type", "Artist", "Title", "Notes"])
+        row_idx = 1
+        for track in tracklist.tracks:
+            if hasattr(track, 'parts') and getattr(track, 'parts', None):
+                writer.writerow([row_idx, "Mashup", track.artist, track.title, getattr(track, 'notes', '') or ""])
+                for part in track.parts:
+                    writer.writerow(["", "Part", part.artist, part.title, getattr(part, 'notes', '') or ""])
+            else:
+                writer.writerow([row_idx, "Recording", track.artist, track.title, getattr(track, 'notes', '') or ""])
+            row_idx += 1
+
+
+@app.command()
+def main(csv: bool = typer.Option(False, "--csv", help="Output each tracklist to a CSV file instead of printing to console")):
+    """Fetch, parse, and display (or save) all tracklists."""
+    async def run():
+        async with httpx.AsyncClient() as client:
+            urls = [entry.url for entry in TRACKLISTS]
+            tasks = [fetch_html(client, url) for url in urls]
+            html_pages = await asyncio.gather(*tasks)
+            for html, url in zip(html_pages, urls):
+                if html:
+                    id_match = re.search(r'/([^/]+)/?$', url.rstrip('/'))
+                    list_id = id_match.group(1) if id_match else "unknown"
+                    tracks = parse_tracklist(html, url)
+                    tracklist = TrackList(id=list_id, tracks=tracks)
+                    if csv:
+                        write_tracklist_csv(tracklist)
+                        console.print(f"[green]Wrote tracklist to CSV: tracklist-{tracklist.id}.csv[/green]")
+                    else:
+                        print_tracklist(tracklist)
+    asyncio.run(run())
+
+if __name__ == "__main__":
+    app()
 
 # Run the script
 if __name__ == "__main__":
